@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "check": "tsc --noEmit",
-    "fork": "anvil --fork-url $MAINNET_RPC_URL --chain-id 1 --host 127.0.0.1",
+    "fork": "bash -c 'source .env && anvil --fork-url \"$MAINNET_RPC_URL\" --chain-id 1 --host 127.0.0.1'",
     "seed": "tsx scripts/seedFork.ts",
     "rebalance:dry-run": "DRY_RUN=true tsx src/index.ts",
     "rebalance:execute": "DRY_RUN=false tsx src/index.ts"

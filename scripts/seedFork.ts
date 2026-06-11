@@ -4,7 +4,6 @@ import {
   createWalletClient,
   formatUnits,
   http,
-  isAddress,
   parseEther,
   parseUnits,
   type Address,
@@ -17,9 +16,9 @@ import { TOKENS, type TokenSymbol } from "../src/addresses.js";
 const FORK_RPC_URL = process.env.FORK_RPC_URL ?? "http://127.0.0.1:8545";
 
 const DEFAULT_WHALES: Record<TokenSymbol, Address> = {
-  WETH: "0xF04a5cC80B1E94C69B48f5ee68BeF6330A8bC2d4",
+  WETH: "0xf04a5cc80b1e94c69b48f5ee68bef6330a8bc2d4",
   WBTC: "0x9ff58f4ffb29fa2266ab25e75e2a8b3503311656",
-  USDC: "0x0A59649758aa4d66E25f08Dd01271e891fe52199",
+  USDC: "0x0a59649758aa4d66e25f08dd01271e891fe52199",
 };
 
 const DEFAULT_SEED_AMOUNTS: Record<TokenSymbol, string> = {
@@ -87,8 +86,8 @@ async function main() {
 }
 
 function getRecipient(): Address {
-  if (process.env.PORTFOLIO_ADDRESS && isAddress(process.env.PORTFOLIO_ADDRESS)) {
-    return process.env.PORTFOLIO_ADDRESS;
+  if (process.env.PORTFOLIO_ADDRESS) {
+    return normalizeAddress(process.env.PORTFOLIO_ADDRESS, "PORTFOLIO_ADDRESS");
   }
 
   const privateKey = process.env.PRIVATE_KEY;
@@ -102,10 +101,15 @@ function getRecipient(): Address {
 
 function getWhale(symbol: TokenSymbol): Address {
   const value = process.env[`${symbol}_WHALE`] ?? DEFAULT_WHALES[symbol];
-  if (!isAddress(value)) {
-    throw new Error(`${symbol}_WHALE is not a valid address.`);
+  return normalizeAddress(value, `${symbol}_WHALE`);
+}
+
+function normalizeAddress(value: string, label: string): Address {
+  const trimmed = value.trim();
+  if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+    throw new Error(`${label} must be a 0x-prefixed 20-byte hex address.`);
   }
-  return value;
+  return trimmed.toLowerCase() as Address;
 }
 
 async function impersonate(address: Address) {
