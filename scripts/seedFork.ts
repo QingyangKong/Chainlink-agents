@@ -16,9 +16,9 @@ import { TOKENS, type TokenSymbol } from "../src/addresses.js";
 const FORK_RPC_URL = process.env.FORK_RPC_URL ?? "http://127.0.0.1:8545";
 
 const DEFAULT_WHALES: Record<TokenSymbol, Address> = {
-  WETH: "0xf04a5cc80b1e94c69b48f5ee68bef6330a8bc2d4",
-  WBTC: "0x9ff58f4ffb29fa2266ab25e75e2a8b3503311656",
-  USDC: "0x0a59649758aa4d66e25f08dd01271e891fe52199",
+  WETH: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
+  WBTC: "0xcbcdf9626bc03e24f779434178a73a0b4bad62ed",
+  USDC: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
 };
 
 const DEFAULT_SEED_AMOUNTS: Record<TokenSymbol, string> = {
