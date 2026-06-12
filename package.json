@@ -1,12 +1,14 @@
 {
   "name": "chainlink-rebalance-agent-demo",
   "version": "1.0.0",
-  "description": "OpenClaw + Chainlink Skill portfolio rebalancing demo on a local Ethereum mainnet fork.",
+  "description": "OpenClaw + Chainlink for Agents portfolio rebalancing demo on a local Ethereum mainnet fork.",
   "main": "dist/index.js",
   "scripts": {
     "check": "tsc --noEmit",
     "fork": "bash -c 'source .env && anvil --fork-url \"$MAINNET_RPC_URL\" --chain-id 1 --host 127.0.0.1'",
     "seed": "tsx scripts/seedFork.ts",
+    "agents:skills": "tsx src/agentsSkills.ts",
+    "rebalance:plan": "tsx src/plan.ts",
     "rebalance:dry-run": "DRY_RUN=true tsx src/index.ts",
     "rebalance:execute": "DRY_RUN=false tsx src/index.ts"
   },

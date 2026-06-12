@@ -1,8 +1,8 @@
-# OpenClaw + Chainlink Portfolio Rebalancing Demo
+# OpenClaw + Chainlink for Agents Portfolio Rebalancing Demo
 
-This demo shows an AI-agent-style portfolio rebalance loop on a local Ethereum mainnet fork.
+This demo shows an AI-agent-style portfolio rebalance loop using Chainlink for Agents for price discovery and a local Ethereum mainnet fork for deterministic Uniswap execution.
 
-The agent monitors `WETH / WBTC / USDC`, values the portfolio with Chainlink Data Feeds, checks target allocation drift, and optionally executes a Uniswap V3 swap on the fork.
+The agent monitors `WETH / WBTC / USDC`, values the portfolio with verified pricing data from the Chainlink for Agents gateway, checks target allocation drift, and optionally executes a Uniswap V3 swap on the fork.
 
 Default target:
 
@@ -13,22 +13,23 @@ Default target:
 
 ## Why This Is Safe For A Demo
 
-The project is designed for a local mainnet fork. It uses real mainnet contract addresses for Chainlink feeds, ERC20 tokens, and Uniswap, but transactions execute only against your forked node.
+The project is designed for a local mainnet fork. It uses forked ERC20 and Uniswap contracts for balances and swaps, but price discovery is designed to go through Chainlink for Agents. Transactions execute only against your forked node.
 
 Do not use this code with a real mainnet private key. Keep `DRY_RUN=true` until you have inspected the quote and transaction plan.
 
 ## Components
 
-- OpenClaw + Chainlink Skill: Interactive operator flow. Use this to ask for prices, inspect portfolio value, and decide whether to rebalance.
-- Chainlink Data Feeds: Runtime price source for `ETH/USD`, `BTC/USD`, and `USDC/USD`.
-- `src/feeds.ts`: Optional deterministic price reader. Useful for validation, but the interactive demo should first ask OpenClaw to read feeds directly.
+- OpenClaw + Chainlink for Agents skill: Interactive operator flow. Use this to retrieve gateway skills, get verified prices, inspect portfolio value, and decide whether to rebalance.
+- Chainlink for Agents gateway: Hosted HTTP gateway for agent access to Chainlink services such as Data Streams and guardrailed onchain workflows.
+- `src/agentsGateway.ts`: Configurable Chainlink for Agents gateway client for skill retrieval and Data Streams price calls.
+- `src/feeds.ts`: Optional fallback price reader using direct Chainlink Data Feed contracts on the fork.
 - `src/balances.ts`: Optional deterministic balance reader.
 - `src/allocation.ts`: Optional deterministic allocation calculator.
 - `src/rebalance.ts`: Optional deterministic rebalance planner.
 - `src/uniswap.ts`: Swap execution helper for the final rebalance step.
 - `scripts/seedFork.ts`: Seeds a fork wallet by impersonating configured token holders.
 
-The preferred demo path is interactive: OpenClaw reads prices and explains each step first. The TypeScript files are fallback execution tools, not the main story of the demo.
+The preferred demo path is hybrid: Chainlink for Agents powers the price step, while local scripts keep portfolio math and Uniswap execution deterministic for a reliable demo.
 
 ## Local vs Server
 
@@ -43,7 +44,7 @@ Run these tasks locally:
 Run these tasks on the EC2 instance:
 
 - Clone or pull this repo.
-- Install Node.js, Foundry/Anvil, OpenClaw, and Chainlink Skill.
+- Install Node.js, Foundry/Anvil, OpenClaw, and the Chainlink for Agents skill/gateway setup.
 - Configure `.env`.
 - Run `npm install`.
 - Start the Anvil mainnet fork with `npm run fork`.
@@ -132,84 +133,120 @@ openclaw --version
 
 In this local Cursor environment, `openclaw` was not available, so this README assumes OpenClaw runs on EC2.
 
-## Install Chainlink Skill
+## Install Chainlink for Agents Skill
 
-For this demo, install the Chainlink skill into OpenClaw first. This is the main path because OpenClaw is the agent that will read prices interactively.
+For this version of the demo, the primary Chainlink integration is **Chainlink for Agents**. It is a hosted HTTP gateway plus bundled agent skills. The agent uses the gateway skill to discover the available Chainlink for Agents services, complete onboarding, and retrieve verified pricing data.
 
-If your OpenClaw version supports ClawHub skills:
+Install the Chainlink for Agents skill bundle on EC2 from the gateway:
 
 ```shell
-openclaw skills install chainlink
+export CHAINLINK_AGENTS_URL="https://agents.chain.link"
+curl -sSL "$CHAINLINK_AGENTS_URL/v1/skills/bundle" -o chainlink-for-agents.zip
+unzip -o chainlink-for-agents.zip -d chainlink-for-agents
+openclaw skills install ./chainlink-for-agents --as chainlink-for-agents
 openclaw skills list
 ```
 
 Some OpenClaw builds use singular commands:
 
 ```shell
-openclaw skill install chainlink
+openclaw skill install ./chainlink-for-agents --as chainlink-for-agents
 openclaw skill list
 ```
 
-Optionally, also install the official Chainlink Agent Skills bundle at the project level:
+The root skill guide is also available at `/v1/skills`. Use this to inspect what the agent will load:
 
 ```shell
-npx skills add smartcontractkit/chainlink-agent-skills
+npm run agents:skills
 ```
 
-The difference:
+Chainlink for Agents is currently in Preview. Expect the agent to handle or ask you about:
 
-- `openclaw skills install chainlink` gives OpenClaw the Chainlink capability directly.
-- `npx skills add smartcontractkit/chainlink-agent-skills` installs the official Chainlink skill bundle into the project for compatible Agent Skills tools.
+- gateway registration
+- signing Terms of Service with a local EVM wallet
+- a Base wallet funded with USDC for x402 micropayments
+- optional SVA provisioning for guardrailed onchain actions
+- Data Streams feed IDs and endpoint details
 
-For this demo, the OpenClaw install is the important one. Use the Chainlink Skill explicitly in OpenClaw when asking it to read prices. The point is to let the agent apply Chainlink-specific knowledge during the interaction, not only execute a prewritten script.
+For this demo, install only the Chainlink for Agents bundle above. The direct Data Feed contract reader remains available only as a fallback with `PRICE_PROVIDER=feeds`.
 
-## Interactive OpenClaw Workflow
+## Hybrid OpenClaw Workflow
 
-This is the recommended demo flow. Do not ask OpenClaw to complete everything in one prompt. Ask for one step at a time, inspect the answer, then continue.
+This is the recommended demo flow on a small EC2 instance. Use Chainlink for Agents for the price step, then use the local fork for balances and Uniswap execution. The Chainlink for Agents guardrailed onchain experience is not assumed to support this custom Uniswap rebalance workflow; local Uniswap execution remains deterministic and fork-only.
 
-### Step 1: Ask OpenClaw To Read Chainlink Prices
+Start OpenClaw from this repo so `!` shell commands and `.env` resolution use the correct working directory:
+
+```shell
+cd agents-learning
+openclaw chat
+```
+
+Inside OpenClaw, you can verify the working directory with:
+
+```text
+!pwd
+```
+
+### Step 1: Ask OpenClaw To Use Chainlink for Agents Prices
 
 Prompt:
 
 ```text
-Using /chainlink-data-feeds-skill, read the latest Chainlink Data Feed prices on my local Ethereum mainnet fork.
+Use the Chainlink for Agents skill from https://agents.chain.link/v1/skills.
 
-Use FORK_RPC_URL from .env.
-Read these feeds:
-- ETH/USD: 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
-- BTC/USD: 0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c
-- USDC/USD: 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6
+Complete any required Chainlink for Agents onboarding steps for Data Streams access. Use a Base wallet with USDC for x402 micropayments if required.
 
-For each feed:
-- call decimals()
-- call latestRoundData()
-- convert answer using decimals
-- check updatedAt freshness
-- report the final USD price and timestamp
+Then retrieve the latest verified prices for:
+- ETH/USD
+- BTC/USD
+- USDC/USD
 
-Only read and report prices. Do not read balances and do not rebalance yet.
+For each price:
+- show which Chainlink for Agents/Data Streams feed or report you used
+- show the USD price
+- show the report timestamp or freshness metadata
+- mention any gateway payment, registration, or preview limitation
+
+Do not read balances and do not rebalance yet.
 ```
 
 Expected agent behavior:
 
-- Use the Chainlink Skill to choose the correct AggregatorV3 read pattern.
-- Use a direct RPC read, for example `cast call` or another OpenClaw-supported onchain read tool.
+- Retrieve or use the Chainlink for Agents skill.
+- Use Chainlink for Agents/Data Streams for price discovery.
 - Return prices and freshness checks before moving on.
+- Keep the interaction short and wait for the next prompt.
+
+If onboarding gives you concrete Data Streams endpoint and feed IDs, add them to `.env` so scripts can use the gateway too:
+
+```shell
+PRICE_PROVIDER="agents"
+CHAINLINK_AGENTS_PRICE_ENDPOINT_TEMPLATE="/replace/with/preview/endpoint?feedId={feedId}"
+CHAINLINK_AGENTS_ETH_USD_FEED_ID="..."
+CHAINLINK_AGENTS_BTC_USD_FEED_ID="..."
+CHAINLINK_AGENTS_USDC_USD_FEED_ID="..."
+```
+
+If the Chainlink for Agents preview endpoint is unavailable, switch scripts to direct Data Feed contracts as a fallback:
+
+```shell
+PRICE_PROVIDER=feeds
+```
 
 ### Step 2: Ask OpenClaw To Check Portfolio Value
 
 Prompt:
 
 ```text
-Now read my portfolio balances on the same fork and calculate whether the allocation matches the target.
+Using the Chainlink for Agents prices you just retrieved, check whether my fork portfolio allocation matches the target.
 
-Portfolio address: use PORTFOLIO_ADDRESS from .env.
-Assets:
+Use PORTFOLIO_ADDRESS from .env.
+
+Portfolio assets:
 - WETH: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
 - WBTC: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599
 - USDC: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 
-Use the prices you just read from Chainlink.
 Target allocation:
 - WETH 50%
 - WBTC 30%
@@ -230,42 +267,66 @@ Do not execute any swap yet.
 
 Expected agent behavior:
 
-- Read ERC20 `balanceOf()` and `decimals()` directly from the fork.
+- Read ERC20 balanceOf() and decimals() directly from the fork.
 - Combine balances with the Chainlink prices from Step 1.
 - Explain whether the portfolio is inside or outside the threshold.
+- Do not query Uniswap yet.
 
-### Step 3: Ask OpenClaw To Rebalance
+### Step 3: Prepare A Rebalance Plan Without Uniswap Quote
 
 Prompt:
 
 ```text
-Based on the portfolio value and drift you calculated, prepare a rebalance transaction plan.
+Run this command and summarize the rebalance plan:
 
-If any asset is more than 5 percentage points away from target:
-- identify which asset to sell
-- identify which asset to buy
-- calculate the approximate USD amount to rebalance
-- get a Uniswap V3 quote on the local fork
-- show expected output, slippage, and pool fee tier
+!npm run rebalance:plan
 
-Do not execute yet. Ask me for confirmation first.
+Identify which asset is overweight, which asset is underweight, and the approximate USD amount to rebalance.
+Do not query Uniswap and do not execute.
 ```
 
-After reviewing the quote, send a new prompt:
-
-```text
-Execute the rebalance on the local fork using the plan you just showed me.
-Use fork-only PRIVATE_KEY from .env.
-After execution, show the transaction hash and then recalculate the portfolio allocation.
-```
-
-For the execution step, it is acceptable for OpenClaw to call the TypeScript helper:
+Direct EC2 terminal fallback:
 
 ```shell
-npm run rebalance:execute
+npm run rebalance:plan
 ```
 
-This keeps the risky transaction construction deterministic while preserving the interactive Chainlink Skill flow for price discovery and decision-making.
+### Step 4: Get A Deterministic Uniswap Quote
+
+Only after the plan looks correct, ask OpenClaw to run the dry-run script:
+
+```text
+Now get a deterministic Uniswap quote using the helper script:
+
+!npm run rebalance:dry-run
+
+Summarize the proposed swap, expected output, slippage, and fee tier.
+Do not execute.
+```
+
+Direct EC2 terminal fallback:
+
+```shell
+npm run rebalance:dry-run
+```
+
+### Step 5: Execute Only After Confirmation
+
+After reviewing the dry-run quote, send a new prompt:
+
+```text
+Execute the rebalance on the local fork using the deterministic helper:
+
+!npm run rebalance:execute
+
+After execution, show the transaction hash and then run:
+
+!npm run rebalance:dry-run
+
+Summarize the updated allocation.
+```
+
+This keeps the Chainlink for Agents price step agent-driven, while using deterministic helpers for the heavier rebalance planning, Uniswap quote, and swap construction. OpenClaw remains useful as the operator and explainer, while Chainlink for Agents provides the runtime gateway for verified pricing data.
 
 ## Project Setup On EC2
 
@@ -277,6 +338,28 @@ cp .env.example .env
 ```
 
 Edit `.env` and set `MAINNET_RPC_URL` to an Ethereum mainnet RPC URL.
+
+The default price provider is Chainlink for Agents:
+
+```shell
+PRICE_PROVIDER="agents"
+CHAINLINK_AGENTS_GATEWAY_URL="https://agents.chain.link"
+```
+
+After Chainlink for Agents onboarding, fill these values from the gateway skill/API docs:
+
+```shell
+CHAINLINK_AGENTS_PRICE_ENDPOINT_TEMPLATE="..."
+CHAINLINK_AGENTS_ETH_USD_FEED_ID="..."
+CHAINLINK_AGENTS_BTC_USD_FEED_ID="..."
+CHAINLINK_AGENTS_USDC_USD_FEED_ID="..."
+```
+
+If the Preview gateway is unavailable during the demo, switch to direct forked Data Feed contracts:
+
+```shell
+PRICE_PROVIDER="feeds"
+```
 
 The example private key is Anvil's default first account. It is public and should only be used on a local fork.
 
@@ -296,14 +379,15 @@ In terminal 2, seed the demo wallet:
 npm run seed
 ```
 
-Then use the prompts in `Interactive OpenClaw Workflow`:
+Then use the prompts in `Hybrid OpenClaw Workflow`:
 
-1. Ask OpenClaw to read Chainlink prices directly.
-2. Ask OpenClaw to read balances and calculate portfolio value.
-3. Ask OpenClaw to prepare a rebalance plan.
-4. Confirm with a new prompt before execution.
+1. Ask OpenClaw to use Chainlink for Agents to retrieve verified prices.
+2. Ask OpenClaw to read balances and calculate the portfolio against the explicit `50/30/20` target.
+3. Run `npm run rebalance:plan` and ask OpenClaw to explain the plan.
+4. Run `npm run rebalance:dry-run` for a deterministic Uniswap quote.
+5. Confirm with a new prompt before `npm run rebalance:execute`.
 
-The deterministic TypeScript path is still available as a validation fallback.
+The deterministic TypeScript path is still available for rebalance planning, Uniswap quote, execution, and post-trade checks.
 
 Run a full dry-run report:
 
@@ -345,6 +429,11 @@ Important environment variables:
 
 - `MAINNET_RPC_URL`: RPC used by Anvil to fork Ethereum mainnet.
 - `FORK_RPC_URL`: Local fork RPC, default `http://127.0.0.1:8545`.
+- `PRICE_PROVIDER`: `agents` uses Chainlink for Agents gateway; `feeds` uses direct Chainlink Data Feed contracts on the fork.
+- `CHAINLINK_AGENTS_GATEWAY_URL`: Chainlink for Agents gateway, default `https://agents.chain.link`.
+- `CHAINLINK_AGENTS_API_KEY`: Optional gateway/API credential if your Preview access requires it.
+- `CHAINLINK_AGENTS_PRICE_ENDPOINT_TEMPLATE`: Preview Data Streams price endpoint template. Supports `{feedId}` and `{symbol}` placeholders.
+- `CHAINLINK_AGENTS_ETH_USD_FEED_ID`, `CHAINLINK_AGENTS_BTC_USD_FEED_ID`, `CHAINLINK_AGENTS_USDC_USD_FEED_ID`: Data Streams feed IDs from Chainlink for Agents onboarding.
 - `PRIVATE_KEY`: Fork-only key that controls the portfolio wallet.
 - `PORTFOLIO_ADDRESS`: Wallet monitored and rebalanced.
 - `DRY_RUN`: `true` prints the plan only; `false` sends fork transactions.
@@ -360,6 +449,17 @@ Seed overrides:
 
 If a default whale no longer has enough balance at your fork block, set the corresponding `*_WHALE` address to another holder.
 
+## NPM Script Reference
+
+Use these commands on EC2 when you want to avoid long agent runs:
+
+- `npm run fork`: Start the local Anvil mainnet fork.
+- `npm run seed`: Seed the fork wallet with ETH gas and test token balances.
+- `npm run agents:skills`: Fetch the Chainlink for Agents gateway skill from `/v1/skills`.
+- `npm run rebalance:plan`: Calculate the rebalance plan without querying Uniswap.
+- `npm run rebalance:dry-run`: Query Uniswap and print the proposed swap without execution.
+- `npm run rebalance:execute`: Execute the swap on the fork.
+
 ## Validation
 
 Run TypeScript checks:
@@ -370,9 +470,9 @@ npm run check
 
 ## Demo Talking Points
 
-- OpenClaw uses Chainlink Skill during the live price-read step, so the agent demonstrates Chainlink-specific behavior instead of only running a prewritten script.
-- Chainlink Data Feeds provide the trusted price input; the agent must call `decimals()` and `latestRoundData()` and check freshness before using prices.
+- OpenClaw uses Chainlink for Agents during the live price-read step, so the agent demonstrates a runtime gateway flow instead of only using a development skill.
+- Chainlink for Agents can provide verified pricing through Data Streams with agent registration and x402 payments; direct Data Feed contracts remain a local fallback.
 - Portfolio valuation and rebalance planning happen in separate prompts, making the decision process explicit and auditable.
-- TypeScript helpers are fallback execution tools for deterministic swaps, not the primary price-discovery path.
-- Uniswap performs the portfolio composition change after explicit confirmation.
+- TypeScript helpers keep fork balances, rebalance planning, Uniswap quote, and swap execution deterministic.
+- Uniswap performs the portfolio composition change on the local fork after explicit confirmation.
 - Dry-run mode, slippage, stale-price checks, and fork-only execution are the core safety boundaries.

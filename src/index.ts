@@ -1,10 +1,10 @@
 import { getTokenSymbols, loadConfig, createClients } from "./config.js";
 import { readAllBalances } from "./balances.js";
-import { readAllPrices } from "./feeds.js";
 import { calculateAllocation } from "./allocation.js";
 import { buildRebalancePlan } from "./rebalance.js";
 import { executeSwap, quoteBestSwap } from "./uniswap.js";
 import { printPlan, printPrices, printQuote, printSnapshot } from "./report.js";
+import { readConfiguredPrices } from "./priceProvider.js";
 
 async function main() {
   const config = loadConfig();
@@ -14,11 +14,12 @@ async function main() {
   console.log("OpenClaw + Chainlink Portfolio Rebalancing Demo");
   console.log(`Portfolio: ${config.portfolioAddress}`);
   console.log(`RPC: ${config.forkRpcUrl}`);
+  console.log(`Price provider: ${config.priceProvider}`);
   console.log(`Mode: ${config.dryRun ? "dry-run" : "execute"}`);
 
   const [balances, prices] = await Promise.all([
     readAllBalances(publicClient, config.portfolioAddress, symbols),
-    readAllPrices(publicClient, symbols, config.stalePriceSeconds),
+    readConfiguredPrices(config, publicClient, symbols),
   ]);
 
   const snapshot = calculateAllocation(balances, prices, symbols);
