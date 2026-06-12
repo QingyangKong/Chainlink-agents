@@ -142,15 +142,16 @@ Install the Chainlink for Agents skill bundle on EC2 from the gateway:
 ```shell
 export CHAINLINK_AGENTS_URL="https://agents.chain.link"
 curl -sSL "$CHAINLINK_AGENTS_URL/v1/skills/bundle" -o chainlink-for-agents.zip
+rm -rf chainlink-for-agents
 unzip -o chainlink-for-agents.zip -d chainlink-for-agents
-openclaw skills install ./chainlink-for-agents --as chainlink-for-agents
+openclaw skills install ./chainlink-for-agents/chainlink-for-agents --as chainlink-for-agents
 openclaw skills list
 ```
 
 Some OpenClaw builds use singular commands:
 
 ```shell
-openclaw skill install ./chainlink-for-agents --as chainlink-for-agents
+openclaw skill install ./chainlink-for-agents/chainlink-for-agents --as chainlink-for-agents
 openclaw skill list
 ```
 
