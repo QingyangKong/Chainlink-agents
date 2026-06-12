@@ -202,6 +202,11 @@ Then retrieve the latest verified prices for:
 - BTC/USD
 - USDC/USD
 
+Important boundary:
+- Price source: Chainlink for Agents gateway / Data Streams.
+- Do not read portfolio balances in this step.
+- Do not use the local fork in this step except to read `.env` if needed.
+
 For each price:
 - show which Chainlink for Agents/Data Streams feed or report you used
 - show the USD price
@@ -240,6 +245,12 @@ Prompt:
 
 ```text
 Using the Chainlink for Agents prices you just retrieved, check whether my fork portfolio allocation matches the target.
+
+Important boundary:
+- Price source: use only the Chainlink for Agents prices from Step 1.
+- Portfolio state source: use only the local Ethereum mainnet fork at FORK_RPC_URL from .env.
+- Do not query real mainnet balances.
+- Do not send any transaction.
 
 Use PORTFOLIO_ADDRESS from .env.
 
@@ -282,6 +293,12 @@ Run this command and summarize the rebalance plan:
 
 !npm run rebalance:plan
 
+Important boundary:
+- This command must run inside this repo on EC2.
+- The script reads fork balances from FORK_RPC_URL in .env.
+- The script uses PRICE_PROVIDER from .env for prices.
+- Treat this as a local fork planning step, not a real mainnet action.
+
 Identify which asset is overweight, which asset is underweight, and the approximate USD amount to rebalance.
 Do not query Uniswap and do not execute.
 ```
@@ -301,6 +318,12 @@ Now get a deterministic Uniswap quote using the helper script:
 
 !npm run rebalance:dry-run
 
+Important boundary:
+- This quote is for the local fork only.
+- Use FORK_RPC_URL from .env.
+- Do not use real mainnet RPC for quote or execution.
+- Do not send any transaction.
+
 Summarize the proposed swap, expected output, slippage, and fee tier.
 Do not execute.
 ```
@@ -319,6 +342,12 @@ After reviewing the dry-run quote, send a new prompt:
 Execute the rebalance on the local fork using the deterministic helper:
 
 !npm run rebalance:execute
+
+Important boundary:
+- Execute only on the local fork at FORK_RPC_URL from .env.
+- Use the fork-only PRIVATE_KEY from .env.
+- Do not send any transaction to real mainnet.
+- Do not use AGENT_PRIVATE_KEY for the Uniswap swap.
 
 After execution, show the transaction hash and then run:
 
