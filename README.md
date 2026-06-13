@@ -191,7 +191,7 @@ Expected agent behavior:
 - Explain whether the portfolio is inside or outside the threshold.
 - Do not query Uniswap yet.
 
-### Step 3: Prepare A Rebalance Plan Without Uniswap Quote
+### Step 3: Prepare A Rebalance Plan
 
 Prompt:
 
@@ -297,6 +297,12 @@ After execution:
 - summarize the updated allocation
 
 Ask me for final confirmation before sending the transaction.
+```
+Note that when testing on forked networks, guardrailed calldata cannot be directly applied, as the system targets the SVA contract rather than the SVA instance.
+
+use the following the following prompt to generate a new calldata
+```
+rebuilding calldata with the portfolio as recipient and execute. 
 ```
 
 This keeps Chainlink for Agents prices, portfolio calculation, rebalance planning, and guardrailed transaction JSON generation agent-visible while still keeping final execution explicit and fork-only. OpenClaw remains useful as the operator and explainer, while Chainlink for Agents provides the runtime gateway for verified pricing data and guarded transaction building.
