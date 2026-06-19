@@ -1,4 +1,174 @@
-# OpenClaw + Chainlink for Agents Portfolio Rebalancing Demo
+# OpenClaw + Chainlink for Agents Use cases
+> **NOTE:** This repo represents an educational example to use a Chainlink system, product, or service and is provided to demonstrate how to interact with Chainlink’s systems, products, and services to integrate them into your own. This template is provided “AS IS” and “AS AVAILABLE” without warranties of any kind, it has not been audited, and it may be missing key checks or error handling to make the usage of the system, product or service more clear. Do not use the code in this example in a production environment without completing your own audits and application of best practices. Neither Chainlink Labs, the Chainlink Foundation, nor Chainlink node operators are responsible for unintended outputs that are generated due to errors in code.
+
+The repository is used to provide guide to use [Chainlink for Agents](https://docs.chain.link/resources/chainlink-for-agents) with AI Agent. There are 3 demos for users try SVA and guardrailed experiences from Chainlink for Agents. Openclaw is the AI agent used for use cases in the demo, while Chainlink for Agents can be installed with other AI agents. 
+
+## prerequisite
+- Install Openclaw following the [official doc](https://openclaw.ai/).
+- [Install Chainlink for Agents](#install-chainlink-for-agents-skill) on Openclaw. 
+
+## Use Case 1: Treasury Yield Optimization
+This demo shows how to use Openclaw AI agent to complete the Treasury Yield Optimization. The agent will monitor all idle assets in the SVA address and supply these assets to Aave on Base mainnet.
+
+### Step 1: Create a SVA for the agent
+Transfer 5-10 $USDC tokens to your EOA account, and open the agent with command:
+```shell
+openclaw chat
+```
+Input prompt
+```text
+Use chainlink-for-agent to create a SVA on Base mainnet. Approve 1 USDC to pay with x402 for Base SVA creation  if it is necessary. 
+```
+You will see SVA address returned by Chainlink gateway and 1 USDC paid with X402. 
+
+### Step 2: Monitor idle funds with `token-balance`
+Transfer a small amount of $USDC and $WETH tokens(or any other ERC20 tokens) to the SVA address and then check the balance with the prompt.
+```text
+Use Chainlink for Agents `token-balance` workflow to check my SVA’s balance for idle tokens on Base Mainnet.
+
+Return:
+  - SVA wallet address
+  - token symbol/name if available
+  - raw balance
+  - human-readable balance
+  - any workflow operation ID/status
+  - any errors or unavailable data
+ 
+```
+You will see the balances and operation ID for `token-balance` workflow. 
+
+### Step 3: Check Aave yield opportunities with `aave-yield`
+Input prompt
+```text
+Use the Chainlink for Agents aave-yields workflow to check the current Aave yield opportunity for my idle tokens on Base Mainnet.
+
+Return only the relevant yield info for all idle assets:
+- Aave market/reserve name
+- underlying token symbol/name/address
+- current supply APY
+- any minimum amount, liquidity, or protocol constraints if available
+- x402 fee
+- any errors or unavailable data
+Do not submit any Aave supply transaction, sign operation data for deployment, move wallet assets, or check unrelated assets.
+```
+Agent is expected to return current supply APY for idle assets. 
+
+### Step 4: Prepare and send supply transaction with `aave-supply`
+```text
+Use Chainlink for Agents `aave-supply` workflow to supply all idle supported assets from my Base Mainnet SVA into Aave V3 Base.
+
+
+Use only the `aave-supply` workflow. This is a write operation that may approve tokens and supply assets into Aave, so before signing or submitting any EIP-712 operation, show me for each asset:                                                            
+  - current token balance
+  - amount to supply, raw and human-readable
+  - Aave market/pool address
+  - token contract address
+  - workflow operation ID
+  - generated transactions/calldata summary
+  - whether approval is required
+  - expected x402 fee
+  - any errors or unavailable data
+
+
+Wait for my explicit confirmation before signing or submitting any operation.                                                 
+
+
+After confirmation, submit each asset supply operation only if:
+  - the token balance is still nonzero
+  - the token is supported by Aave V3 Base
+  - the workflow status is pending signature / ready for submission
+
+
+Return:
+  - operation ID and status for each asset
+  - transaction hash if submitted
+  - final status
+  - final idle balances if available
+  - any errors or unavailable data
+```
+The agent is expected to receive the operatios and decod calldata within it and ask for your confirmation. Input the prompt to approve the submission.
+```text
+Confirm: sign and submit these 2 operations. 
+```
+After confirmation, the transaction will be signed and submitted to the Chainlink Gateway. This is the result returned by the agent. 
+
+### Step 5: Check the aave positions with `aave-postions`
+Check the current aave positions for your SVA with prompt.
+```text
+Use Chainlink for Agents `aave-positions` workflow to check my Aave V3 positions for my Base Mainnet SVA.
+
+
+Use only the read-only `aave-positions` workflow. Do not submit transactions, sign operation data, approve tokens, supply, withdraw, swap, bridge, or move any assets.
+
+
+Return:
+  - workflow operation ID and status
+  - Aave market/pool address
+  - supplied assets / aToken positions
+  - underlying token symbol/name/address
+  - supplied raw balance
+  - human-readable supplied balance
+  - current supply APY if available
+  - collateral/enabled status if available
+  - x402 fee
+  - any errors or unavailable data
+
+```
+Agent is exptected to return the aave positions for your SVA address. 
+
+### Step 6: Withdraw the fund from Aave to SVA with `aave-withdraw`
+Withdraw the aToken from Aave to your SVA with prompt.
+```text
+ Use Chainlink for Agents `aave-withdraw` workflow to withdraw my Aave V3 Base positions back to my Base Mainnet SVA.
+
+ This is a write operation. Before signing or submitting any EIP-712 operation, show me for each asset:
+  - current Aave supplied position
+  - underlying token symbol/name/address
+  - withdraw amount, raw and human-readable if available
+  - Aave market/pool address
+  - workflow operation ID
+  - generated transaction/calldata summary
+  - expected x402 fee
+  - any errors or unavailable data
+
+ Wait for my explicit confirmation before signing or submitting.
+
+  Return:
+  - operation ID and status for each asset
+  - transaction hash if submitted
+  - final idle token balances if available
+  - any errors or unavailable data
+```
+Check the balance of tokens in SVA idle asset tokens should be there. 
+
+### Step 7: Withdraw the fund from SVA to EOA with `token-transfer`
+Withdraw the idle asset tokens from SVA to your EOA with prompt.
+```text
+  Use the Chainlink for Agents 'token-transfer workflow to withdraw all idle assets from my Base Mainnet SVA back to my EOA <USE YOUR EOA ADDRESS HERE>.
+                 
+  Before signing or submitting any EIP-712 operation:
+  - check current token balances for each idle asset
+  - prepare `token-transfer` operations for all nonzero supported idle assets
+  - show me for each asset:
+    - transfer amount, raw and human-readable
+    - workflow operation ID
+    - generated transaction/calldata summary
+    - expected x402 fee
+    - any errors or unavailable data
+
+  Wait for my explicit confirmation before signing or submitting.
+
+  Return:
+  - operation ID and status for each asset
+  - submission status for each asset
+  - transaction hash if available
+  - final SVA token balances if available
+  - final EOA received balances or transfer events if available
+  - any errors or unavailable data
+```
+Check the balance of tokens in your EOA. 
+
+## Use Case 2: Portfolio Rebalancing Demo
 
 This demo shows an AI-agent-style portfolio rebalance loop using Chainlink for Agents for price discovery and a local Ethereum mainnet fork for deterministic Uniswap execution.
 
@@ -11,24 +181,83 @@ Default target:
 - `USDC`: 20%
 - Rebalance threshold: 5 percentage points
 
-## Why This Is Safe For A Demo
+### Step 1: Retrieve Price Data and inspect current SVA portfolio allocation
+Transfer any amount of WETH, WBTC and USDC to SVA address you creatd in use case 1. 
 
-The project is designed for a local mainnet fork. It uses forked ERC20 and Uniswap contracts for balances and swaps, but price discovery is designed to go through Chainlink for Agents. Transactions execute only against your forked node.
+Query the price of assets and inspect allocation for your SVA with prompt.
 
-Do not use this code with a real mainnet private key. Keep `DRY_RUN=true` until you have inspected the quote and transaction plan.
+```text
+  Use Chainlink for Agents to inspect my SVA portfolio and calculate current allocation.
 
-You can run the agent on a dedicated server instead of your local machine. This keeps OpenClaw, Anvil, and the agent workspace away from your local files, reducing the risk that local environment data or sensitive files are accidentally exposed to the agent. To run the demo this way, see [Local vs Server](#local-vs-server).
+  Steps:
+  1. Use the token-balance workflow to check balances for these assets: WETH, WBTC and USDC
+  2. Use token-info to confirm token decimals and symbols.
+  3. Fetch price data from Chainlink Data Streams using streams-latest-report or streams-bulk-reports:
+     - ETH/USD price for WETH
+     - BTC/USD price for WBTC
+     - USDC/USD price for USDC
 
-## Components
+  Target allocation:
+  - WETH: 50%
+  - WBTC: 30%
+  - USDC: 20%
 
-- OpenClaw + Chainlink for Agents skill: Interactive operator flow. Use this to retrieve gateway skills, get verified prices, inspect portfolio value, and decide whether to rebalance.
-- Chainlink for Agents gateway: Hosted HTTP gateway for agent access to Chainlink services such as Data Streams and guardrailed onchain workflows.
-- `src/agentsGateway.ts`: Chainlink for Agents gateway client for skill retrieval.
-- `src/agentsSkills.ts`: Prints the Chainlink for Agents root skill guide from the gateway.
-- `src/abi.ts` and `src/addresses.ts`: Shared ABI/address definitions used by the seed script.
-- `scripts/seedFork.ts`: Seeds a fork wallet by impersonating configured token holders.
+  Output:
+  1. SVA wallet address.
+  2. Token balances in raw units and human-readable units.
+  3. Chainlink Data Streams price used for each asset.
+  4. USD value of each asset.
+  5. Total portfolio USD value.
+  6. Current allocation percentage for each asset.
+  7. Difference from target allocation for each asset.
 
-The preferred demo path is hybrid: Chainlink for Agents powers the price step, while local scripts keep portfolio math and Uniswap execution deterministic for a reliable demo.
+  Do not generate swaps or transactions yet. This prompt is only for balance checking, pricing, and allocation calculation.
+```
+
+Expected agent behavior:
+- Use Chainlink for Agents/Data Streams for price discovery.
+- Return prices and freshness checks before moving on.
+- Use price and balance to inspect the current allocation to provide a report. 
+
+### Step 2: Rebalance with `token-swap`
+Use the workflow `token-swap` to ask Chainlink gateway to generate operations with prompt.
+```text
+ Use Chainlink for Agents to rebalance-plan my Base SVA portfolio, then compose swaps only.
+
+ Target:
+  - WETH 50%
+  - WBTC 30%
+  - USDC 20%
+ 
+  Threshold: rebalance only if >5 percentage points from target.
+
+ Steps:
+  1. Use the asset allocation in the last step. 
+  2. Compose required swaps with `token-swap`:
+     - `POST /v1/operations/token-swap`
+     - params: `chain_selector`, `token_in`, `token_out`, `amount_in`, `max_slippage_bps`
+     - use `max_slippage_bps: 50`
+  3. Return plan + token-swap operation IDs/calldata summaries.
+  4. Do not sign, submit, or broadcast anything without separate approval.
+```
+
+Expected agent behavior:
+
+- Prepare the swap plan to reallocate the assets in SVA.
+- Return multiple operations to you from Chainlink gateway.
+- Wait for you to sign the message.
+
+Sign the message with prompt
+```text
+Confirm and submit the operations.
+```
+
+Expected agent behavior:
+
+- Submit operations to the Chainlink Gateway
+- Reallocate assets by swapping them on Uniswap V3. 
+- Report new asset allocation.
+
 
 ## Install Chainlink for Agents Skill
 
@@ -52,11 +281,6 @@ openclaw skill install ./chainlink-for-agents/chainlink-for-agents --as chainlin
 openclaw skill list
 ```
 
-The root skill guide is also available at `/v1/skills`. Use this to inspect what the agent will load:
-
-```shell
-npm run agents:skills
-```
 
 Chainlink for Agents is currently in Preview. Expect the agent to handle or ask you about:
 
@@ -68,323 +292,9 @@ Chainlink for Agents is currently in Preview. Expect the agent to handle or ask 
 
 For this demo, install only the Chainlink for Agents bundle above. Chainlink for Agents price retrieval happens through OpenClaw in Step 1, not through a local script.
 
-## Hybrid OpenClaw Workflow
-
-This workflow is the same whether you run it locally or on EC2. Use Chainlink for Agents for the price step, then use the local fork for balances and final execution. When the prompts mention Ethereum mainnet token or transaction target addresses, they mean those mainnet addresses as copied into the local fork at `FORK_RPC_URL`; they do not mean sending transactions to real mainnet. If the Chainlink for Agents catalog supports `token-swap`, use it as a guardrailed transaction JSON builder, then apply the returned JSON only to the local fork.
-
-### Step 0: Prepare The Repo, Fork, And Seeded Wallet
-
-From the machine where OpenClaw will run:
-
-```shell
-git clone <YOUR_REPO_URL>
-cd agents-learning
-npm install
-cp .env.example .env
-```
-
-Edit `.env` and set `MAINNET_RPC_URL` to an Ethereum mainnet RPC URL. Keep `CHAINLINK_AGENTS_GATEWAY_URL="https://agents.chain.link"` unless Chainlink provides a different gateway URL.
-
-The example `PRIVATE_KEY` is Anvil's default first account. It is public and should only be used on a local fork.
-
-Start the fork in terminal 1:
-
-```shell
-npm run fork
-```
-
-In terminal 2, seed the demo wallet:
-
-```shell
-npm run seed
-```
-
-In terminal 3, start OpenClaw from this repo so `!` shell commands and `.env` resolution use the correct working directory:
-
-```shell
-openclaw chat
-```
-
-Inside OpenClaw, you can verify the working directory with:
-
-```text
-!pwd
-```
-
-### Step 1: Ask OpenClaw To Use Chainlink for Agents Prices
-
-Prompt:
-
-```text
-Use the Chainlink for Agents skill from https://agents.chain.link/v1/skills.
-
-Complete any required Chainlink for Agents onboarding steps for Data Streams access. Use a Base wallet with USDC for x402 micropayments if required.
-
-Then retrieve the latest verified prices for:
-- ETH/USD
-- BTC/USD
-- USDC/USD
-
-Important boundary:
-- Price source: Chainlink for Agents gateway / Data Streams.
-- Do not read portfolio balances in this step.
-- Do not use the local fork in this step except to read `.env` if needed.
-
-For each price:
-- show which Chainlink for Agents/Data Streams feed or report you used
-- show the USD price
-- show the report timestamp or freshness metadata
-- mention any gateway payment, registration, or preview limitation
-
-Do not read balances and do not rebalance yet.
-```
-
-Expected agent behavior:
-
-- Retrieve or use the Chainlink for Agents skill.
-- Use Chainlink for Agents/Data Streams for price discovery.
-- Return prices and freshness checks before moving on.
-- Keep the interaction short and wait for the next prompt.
-
-### Step 2: Ask OpenClaw To Check Portfolio Value
-
-Prompt:
-
-```text
-Using the Chainlink for Agents prices you just retrieved, check whether my fork portfolio allocation matches the target.
-
-Important boundary:
-- Price source: use only the Chainlink for Agents prices from Step 1.
-- Portfolio state source: use only the local Ethereum mainnet fork at FORK_RPC_URL from .env.
-- Do not query real mainnet balances.
-- Do not send any transaction.
-
-Use PORTFOLIO_ADDRESS from .env.
-
-Portfolio assets:
-- WETH: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
-- WBTC: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599
-- USDC: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
-
-Target allocation:
-- WETH 50%
-- WBTC 30%
-- USDC 20%
-
-Rebalance threshold: 5 percentage points.
-
-Please report:
-- token balances
-- USD value per asset
-- current allocation percentage
-- target allocation percentage
-- drift from target
-- whether rebalancing is needed
-
-Do not execute any swap yet.
-```
-
-Expected agent behavior:
-
-- Read ERC20 balanceOf() and decimals() directly from the fork.
-- Combine balances with the Chainlink prices from Step 1.
-- Explain whether the portfolio is inside or outside the threshold.
-- Do not query Uniswap yet.
-
-### Step 3: Prepare A Rebalance Plan
-
-Prompt:
-
-```text
-Using the portfolio allocation you calculated in Step 2, prepare a rebalance plan.
-
-Important boundary:
-- Price source: use only the Chainlink for Agents prices from Step 1.
-- Portfolio state source: use only the local fork balances from Step 2.
-- This is a calculation-only step.
-- Do not query Uniswap.
-- Do not execute any transaction.
-
-Target allocation:
-- WETH 50%
-- WBTC 30%
-- USDC 20%
-
-Rebalance threshold: 5 percentage points.
-
-If any asset is more than 5 percentage points away from target:
-- identify which asset is overweight
-- identify which asset is underweight
-- calculate the approximate USD amount to move
-- estimate the sell token amount using the Step 1 prices
-- explain why this move improves the allocation
-
-If the portfolio is within threshold, say no rebalance is needed.
-```
-
-### Step 4: Ask Chainlink Guardrails To Build The Swap JSON
-
-Only after the Step 3 plan looks correct, ask OpenClaw to use Chainlink for Agents in guardrailed mode as a transaction/calldata builder. This step should return only the JSON produced by Chainlink. Do not quote through the local fork, simulate, submit, or execute.
-
-```text
-Use Chainlink for Agents in guardrailed mode as a transaction/calldata builder.
-Return only the final JSON produced by Chainlink.
-
-Use the Step 3 rebalance plan:
-- sell token: <sell token from Step 3>
-- buy token: <buy token from Step 3>
-- amount in: <sell amount from Step 3, converted to token_in smallest units>
-- max slippage: 50 bps
-
-Token addresses:
-- WETH: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
-- WBTC: 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599
-- USDC: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
-
-Workflow:
-1. Discover the Ethereum mainnet chain_selector if needed with `GET /v1/networks`.
-2. Fetch `GET /v1/catalog/token-swap`.
-3. Build with `POST /v1/operations/token-swap` using:
-   {
-     "params": {
-       "chain_selector": "<ethereum-mainnet-chain-selector>",
-       "token_in": "<sell token address>",
-       "token_out": "<buy token address>",
-       "amount_in": "<amount in token_in smallest units>",
-       "max_slippage_bps": 50
-     }
-   }
-4. If Chainlink returns `operation_id`, poll `GET /v1/operations/{operation_id}` until generated transaction data is present.
-
-Safety:
-- Use Ethereum mainnet as the builder target because my local fork is forked from Ethereum mainnet.
-- Do not use Base, Arbitrum, Sepolia, or any testnet for the builder.
-- Do not run npm scripts or use the local fork in this step.
-- Do not execute, simulate, validate, submit, or broadcast.
-- Do not call `/direct` or `/submit`.
-- Never expose or print private keys.
-- If HTTP 402 is returned, handle x402 payment only for this builder/API call.
-- If `token-swap` is unavailable, return only Chainlink's exact JSON error.
-```
-
-### Step 5: Execute Only After Confirmation
-
-After reviewing the Chainlink builder JSON, send a new prompt:
-
-```text
-Execute the transaction JSON from Step 4 on the local fork only.
-
-Important boundary:
-- Execute only on the local fork at FORK_RPC_URL from .env.
-- Use the fork-only PRIVATE_KEY from .env.
-- Do not send any transaction to real mainnet.
-- Do not use AGENT_PRIVATE_KEY for the Uniswap swap.
-- Do not run npm scripts for this step.
-- Do not call Chainlink `/submit`.
-- Do not use Chainlink `/direct`.
-
-Use only the transaction/calldata fields returned in the Chainlink JSON from Step 4.
-
-Before sending to the fork:
-- verify the transaction `to`, calldata, value, and token addresses from the JSON
-- verify the transaction targets Ethereum mainnet addresses as copied into the local fork
-- check and approve token allowance on the local fork only if the generated transaction requires prior ERC-20 approval and the allowance is insufficient
-
-After execution:
-- show the transaction hash
-- confirm this was sent only to FORK_RPC_URL
-- read the fork balances again
-- summarize the updated allocation
-
-Ask me for final confirmation before sending the transaction.
-```
-Note that when testing on forked networks, guardrailed calldata cannot be directly applied, as the system targets the SVA contract rather than the SVA instance.
-
-use the following the following prompt to generate a new calldata
-```
-rebuilding calldata with the portfolio as recipient and execute. 
-```
-
-This keeps Chainlink for Agents prices, portfolio calculation, rebalance planning, and guardrailed transaction JSON generation agent-visible while still keeping final execution explicit and fork-only. OpenClaw remains useful as the operator and explainer, while Chainlink for Agents provides the runtime gateway for verified pricing data and guarded transaction building.
-
-## Configuration
-
-Important environment variables:
-
-- `MAINNET_RPC_URL`: RPC used by Anvil to fork Ethereum mainnet.
-- `FORK_RPC_URL`: Local fork RPC, default `http://127.0.0.1:8545`.
-- `CHAINLINK_AGENTS_GATEWAY_URL`: Chainlink for Agents gateway, default `https://agents.chain.link`.
-- `AGENT_PRIVATE_KEY`: Chainlink for Agents signer key used by the agent/skill for gateway registration and signing.
-- `PRIVATE_KEY`: Fork-only key that controls the portfolio wallet.
-- `PORTFOLIO_ADDRESS`: Wallet monitored and rebalanced.
-- `DRY_RUN`: `true` prints the plan only; `false` sends fork transactions.
-- `REBALANCE_THRESHOLD_BPS`: Drift threshold in basis points. `500` is 5%.
-- `SLIPPAGE_BPS`: Uniswap minimum-output tolerance. `50` is 0.5%.
-- `STALE_PRICE_SECONDS`: Reject Chainlink feed prices older than this.
-- `UNISWAP_FEE_TIER`: Preferred Uniswap V3 fee tier. The code falls back to `500`, `3000`, then `10000`.
-
-Seed overrides:
-
-- `SEED_WETH`, `SEED_WBTC`, `SEED_USDC`
-- `WETH_WHALE`, `WBTC_WHALE`, `USDC_WHALE`
-
-If a default whale no longer has enough balance at your fork block, set the corresponding `*_WHALE` address to another holder.
-
-## NPM Script Reference
-
-Use these commands on EC2:
-
-- `npm run fork`: Start the local Anvil mainnet fork.
-- `npm run seed`: Seed the fork wallet with ETH gas and test token balances.
-- `npm run agents:skills`: Fetch the Chainlink for Agents gateway skill from `/v1/skills`.
-
-## Validation
-
-Run TypeScript checks:
-
-```shell
-npm run check
-```
-
-## Demo Talking Points
-
-- OpenClaw uses Chainlink for Agents during the live price-read step, so the agent demonstrates a runtime gateway flow instead of only using a development skill.
-- Chainlink for Agents can provide verified pricing through Data Streams with agent registration and x402 payments; direct Data Feed contracts remain a local fallback.
-- Portfolio valuation and rebalance planning happen in separate prompts, making the decision process explicit and auditable.
-- The seed script prepares fork-only test balances; OpenClaw performs portfolio reasoning and then asks Chainlink guardrails to build the swap JSON.
-- The returned Chainlink JSON is applied only to the local fork after explicit confirmation.
-- Dry-run mode, slippage, stale-price checks, and fork-only execution are the core safety boundaries.
-
 ## Local vs Server
 
-If OpenClaw cannot run on your local machine, treat an AWS EC2 Ubuntu instance as the runtime environment for this demo. Running the agent on EC2 also keeps the agent away from your local filesystem and local environment variables.
-
-Run these tasks locally:
-
-- Edit code in Cursor.
-- Commit and push the repo to GitHub or another Git remote.
-- SSH into the EC2 instance when you want to run the demo.
-
-Run these tasks on the EC2 instance:
-
-- Clone or pull this repo.
-- Install Node.js, Foundry/Anvil, OpenClaw, and the Chainlink for Agents skill/gateway setup.
-- Configure `.env`.
-- Run `npm install`.
-- Start the Anvil mainnet fork with `npm run fork`.
-- Seed the fork wallet with `npm run seed`.
-- Use the interactive OpenClaw prompts above.
-
-Recommended flow:
-
-```text
-Local Cursor repo
-  -> git push
-  -> AWS EC2 git pull
-  -> OpenClaw + Anvil + npm scripts run on EC2
-```
-
-Do not run Anvil locally while OpenClaw runs on EC2 unless you also configure SSH port forwarding. The simplest setup is to keep the repo, OpenClaw, Anvil, and demo commands all on the same EC2 instance.
+If OpenClaw cannot run on your local machine, treat an AWS EC2 Ubuntu instance as the runtime environment for this demo. Running the agent on EC2 also keeps the agent away from your local filesystem and local environment variables. Check [AWS EC2 Setup](#aws-ec2-setup) to learn how to set up EC2 and install dependencies in the environment. 
 
 ## AWS EC2 Setup
 
